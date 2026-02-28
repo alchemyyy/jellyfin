@@ -130,6 +130,7 @@ namespace MediaBrowser.Controller.Entities.TV
         /// Returns the first provider ID (e.g. "tvdb-81189") or falls back to PresentationUniqueKey
         /// if no provider IDs exist.
         /// </summary>
+        /// <returns>The cross-library matching key.</returns>
         internal string GetCrossLibraryKey()
         {
             var keys = GetUserDataKeys();
