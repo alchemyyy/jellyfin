@@ -31,11 +31,8 @@ public record TrickplayInfoDto
             && double.TryParse(info.DetectedAspectRatio, NumberStyles.Float, CultureInfo.InvariantCulture, out var raw))
         {
             var snapped = AspectRatioLookup.SnapToStandard(raw);
-            if (snapped > 0)
-            {
-                DetectedAspectRatioSnapped = AspectRatioLookup.Format(snapped);
-                DetectedAspectRatioSnappedName = AspectRatioLookup.GetName(snapped);
-            }
+            DetectedAspectRatioSnapped = snapped > 0 ? AspectRatioLookup.Format(snapped) : "0";
+            DetectedAspectRatioSnappedName = snapped > 0 ? AspectRatioLookup.GetName(snapped) : null;
         }
     }
 
