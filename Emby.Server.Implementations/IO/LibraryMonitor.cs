@@ -363,23 +363,13 @@ namespace Emby.Server.Implementations.IO
                 return;
             }
 
-            // Ignore certain files, If the parent of an ignored path has a change event, ignore that too
-            foreach (var i in _tempIgnoredPaths.Keys)
+            // Ignore Jellyfin's own file writes (metadata, images, etc.).
+            // Exact file match only — won't suppress events for other files
+            // in the same directory (e.g. new episodes arriving).
+            if (_tempIgnoredPaths.ContainsKey(path))
             {
-                if (_fileSystem.AreEqual(i, path)
-                    || _fileSystem.ContainsSubPath(i, path))
-                {
-                    _logger.LogDebug("Ignoring change to {Path}", path);
-                    return;
-                }
-
-                // Go up a level
-                var parent = Path.GetDirectoryName(i);
-                if (!string.IsNullOrEmpty(parent) && _fileSystem.AreEqual(parent, path))
-                {
-                    _logger.LogDebug("Ignoring change to {Path}", path);
-                    return;
-                }
+                _logger.LogDebug("Ignoring own change to {Path}", path);
+                return;
             }
 
             CreateRefresher(path);
