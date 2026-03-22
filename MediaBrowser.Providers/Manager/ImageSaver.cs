@@ -278,12 +278,9 @@ namespace MediaBrowser.Providers.Manager
         {
             _logger.LogDebug("Saving image to {0}", path);
 
-            var parentFolder = Path.GetDirectoryName(path);
-
             try
             {
                 _libraryMonitor.ReportFileSystemChangeBeginning(path);
-                _libraryMonitor.ReportFileSystemChangeBeginning(parentFolder);
 
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
 
@@ -311,7 +308,6 @@ namespace MediaBrowser.Providers.Manager
             finally
             {
                 _libraryMonitor.ReportFileSystemChangeComplete(path, false);
-                _libraryMonitor.ReportFileSystemChangeComplete(parentFolder, false);
             }
         }
 
