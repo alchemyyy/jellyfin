@@ -22,6 +22,7 @@ using Jellyfin.Extensions.Json;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.IO;
@@ -54,6 +55,7 @@ namespace Emby.Server.Implementations.Library
         private readonly IUserDataManager _userDataManager;
         private readonly IMediaEncoder _mediaEncoder;
         private readonly ILocalizationManager _localizationManager;
+        private readonly IServerConfigurationManager _configurationManager;
         private readonly IApplicationPaths _appPaths;
         private readonly IDirectoryService _directoryService;
         private readonly IMediaStreamRepository _mediaStreamRepository;
@@ -69,6 +71,7 @@ namespace Emby.Server.Implementations.Library
             IItemRepository itemRepo,
             IApplicationPaths applicationPaths,
             ILocalizationManager localizationManager,
+            IServerConfigurationManager configurationManager,
             IUserManager userManager,
             ILibraryManager libraryManager,
             ILogger<MediaSourceManager> logger,
@@ -88,6 +91,7 @@ namespace Emby.Server.Implementations.Library
             _userDataManager = userDataManager;
             _mediaEncoder = mediaEncoder;
             _localizationManager = localizationManager;
+            _configurationManager = configurationManager;
             _appPaths = applicationPaths;
             _directoryService = directoryService;
             _mediaStreamRepository = mediaStreamRepository;
@@ -484,6 +488,63 @@ namespace Emby.Server.Implementations.Library
             return [language];
         }
 
+        private void EnrichUndefinedStreamLanguages(IReadOnlyList<MediaStream> streams)
+        {
+            foreach (var stream in streams)
+            {
+                if (stream.Type != MediaStreamType.Audio && stream.Type != MediaStreamType.Subtitle)
+                {
+                    continue;
+                }
+
+                if (!IsLanguageUndefined(stream.Language) || string.IsNullOrEmpty(stream.Title))
+                {
+                    continue;
+                }
+
+                var detectedLanguage = TryDetectLanguageFromTitle(stream.Title);
+                if (detectedLanguage is not null)
+                {
+                    stream.Language = detectedLanguage;
+                }
+            }
+        }
+
+        private string TryDetectLanguageFromTitle(string title)
+        {
+            // Split title into tokens by common delimiters found in track names
+            var tokens = title.Split([' ', '-', '(', ')', '[', ']', ',', '.', '/', '\\', '_', ':', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var token in tokens)
+            {
+                if (token.Length < 2)
+                {
+                    continue;
+                }
+
+                var culture = _localizationManager.FindLanguageInfo(token);
+                if (culture is not null)
+                {
+                    // Return the three-letter ISO language code
+                    return culture.ThreeLetterISOLanguageNames.Count > 0
+                        ? culture.ThreeLetterISOLanguageNames[0]
+                        : culture.TwoLetterISOLanguageName;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsLanguageUndefined(string language)
+        {
+            return string.IsNullOrEmpty(language) ||
+                language.Equals("und", StringComparison.OrdinalIgnoreCase) ||
+                language.Equals("unknown", StringComparison.OrdinalIgnoreCase) ||
+                language.Equals("undetermined", StringComparison.OrdinalIgnoreCase) ||
+                language.Equals("mul", StringComparison.OrdinalIgnoreCase) ||
+                language.Equals("zxx", StringComparison.OrdinalIgnoreCase);
+        }
+
         private void SetDefaultSubtitleStreamIndex(MediaSourceInfo source, UserItemData userData, User user, bool allowRememberingSelection)
         {
             if (userData is not null
@@ -583,6 +644,12 @@ namespace Emby.Server.Implementations.Library
 
             if (mediaType == MediaType.Video)
             {
+                // For streams with undefined language, try to detect language from the track title
+                if (_configurationManager.Configuration.EnableLanguageDetectionFromTrackTitle)
+                {
+                    EnrichUndefinedStreamLanguages(source.MediaStreams);
+                }
+
                 var userData = item is null ? null : _userDataManager.GetUserData(user, item);
 
                 var allowRememberingSelection = item is null || item.EnableRememberingTrackSelections;

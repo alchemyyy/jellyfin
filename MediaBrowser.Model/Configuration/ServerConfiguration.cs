@@ -231,6 +231,12 @@ public class ServerConfiguration : BaseApplicationConfiguration
     public long SlowResponseThresholdMs { get; set; } = 500;
 
     /// <summary>
+    /// Gets or sets a value indicating whether to detect stream language from track titles
+    /// when the language tag is missing or undefined.
+    /// </summary>
+    public bool EnableLanguageDetectionFromTrackTitle { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the cors hosts.
     /// </summary>
     public string[] CorsHosts { get; set; } = new[] { "*" };
