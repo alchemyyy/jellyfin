@@ -115,4 +115,49 @@ public class MediaStreamSelectorTests
 
         Assert.Equal(expectedScore, MediaStreamSelector.GetStreamScore(stream, languagePref));
     }
+
+    [Fact]
+    public void GetStreamScore_DeprioritizeSpecialTracks_RegularTrackScoresHigher()
+    {
+        string[] languagePreferences = ["eng"];
+        MediaStream regularStream = new()
+        {
+            Type = MediaStreamType.Audio,
+            Language = "eng",
+            Title = "English"
+        };
+        MediaStream commentaryStream = new()
+        {
+            Type = MediaStreamType.Audio,
+            Language = "eng",
+            Title = "Director Commentary"
+        };
+
+        int regularScore = MediaStreamSelector.GetStreamScore(regularStream, languagePreferences, true);
+        int commentaryScore = MediaStreamSelector.GetStreamScore(commentaryStream, languagePreferences, true);
+
+        Assert.True(regularScore > commentaryScore);
+    }
+
+    [Fact]
+    public void GetStreamScore_DeprioritizeSpecialTracks_HearingImpairedSubtitleScoresLower()
+    {
+        string[] languagePreferences = ["eng"];
+        MediaStream regularStream = new()
+        {
+            Type = MediaStreamType.Subtitle,
+            Language = "eng"
+        };
+        MediaStream hearingImpairedStream = new()
+        {
+            Type = MediaStreamType.Subtitle,
+            Language = "eng",
+            IsHearingImpaired = true
+        };
+
+        int regularScore = MediaStreamSelector.GetStreamScore(regularStream, languagePreferences, true);
+        int hearingImpairedScore = MediaStreamSelector.GetStreamScore(hearingImpairedStream, languagePreferences, true);
+
+        Assert.True(regularScore > hearingImpairedScore);
+    }
 }

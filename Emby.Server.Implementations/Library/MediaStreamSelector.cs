@@ -11,9 +11,9 @@ namespace Emby.Server.Implementations.Library
 {
     public static class MediaStreamSelector
     {
-        public static int? GetDefaultAudioStreamIndex(IReadOnlyList<MediaStream> streams, IReadOnlyList<string> preferredLanguages, bool preferDefaultTrack)
+        public static int? GetDefaultAudioStreamIndex(IReadOnlyList<MediaStream> streams, IReadOnlyList<string> preferredLanguages, bool preferDefaultTrack, bool deprioritizeSpecialTracks = false)
         {
-            var sortedStreams = GetSortedStreams(streams, MediaStreamType.Audio, preferredLanguages).ToList();
+            var sortedStreams = GetSortedStreams(streams, MediaStreamType.Audio, preferredLanguages, deprioritizeSpecialTracks).ToList();
 
             if (preferDefaultTrack)
             {
@@ -32,7 +32,8 @@ namespace Emby.Server.Implementations.Library
             IEnumerable<MediaStream> streams,
             IReadOnlyList<string> preferredLanguages,
             SubtitlePlaybackMode mode,
-            string audioTrackLanguage)
+            string audioTrackLanguage,
+            bool deprioritizeSpecialTracks = false)
         {
             if (mode == SubtitlePlaybackMode.None)
             {
@@ -40,9 +41,11 @@ namespace Emby.Server.Implementations.Library
             }
 
             // Sort in the following order: Default > No tag > Forced
+            // Optionally deprioritize commentary, SDH, and other special-purpose tracks
             var sortedStreams = streams
                 .Where(i => i.Type == MediaStreamType.Subtitle)
                 .OrderByDescending(x => x.IsExternal)
+                .ThenBy(x => deprioritizeSpecialTracks && IsSpecialTrack(x))
                 .ThenByDescending(x => x.IsDefault)
                 .ThenByDescending(x => !x.IsForced && MatchesPreferredLanguage(x.Language, preferredLanguages))
                 .ThenByDescending(x => x.IsForced && MatchesPreferredLanguage(x.Language, preferredLanguages))
@@ -86,26 +89,27 @@ namespace Emby.Server.Implementations.Library
             return stream?.Index;
         }
 
-        private static IEnumerable<MediaStream> GetSortedStreams(IEnumerable<MediaStream> streams, MediaStreamType type, IReadOnlyList<string> languagePreferences)
+        private static IEnumerable<MediaStream> GetSortedStreams(IEnumerable<MediaStream> streams, MediaStreamType type, IReadOnlyList<string> languagePreferences, bool deprioritizeSpecialTracks = false)
         {
             // Give some preference to external text subs for better performance
             return streams
                 .Where(i => i.Type == type)
-                .OrderByDescending(i => GetStreamScore(i, languagePreferences));
+                .OrderByDescending(i => GetStreamScore(i, languagePreferences, deprioritizeSpecialTracks));
         }
 
         public static void SetSubtitleStreamScores(
             IReadOnlyList<MediaStream> streams,
             IReadOnlyList<string> preferredLanguages,
             SubtitlePlaybackMode mode,
-            string audioTrackLanguage)
+            string audioTrackLanguage,
+            bool deprioritizeSpecialTracks = false)
         {
             if (mode == SubtitlePlaybackMode.None)
             {
                 return;
             }
 
-            var sortedStreams = GetSortedStreams(streams, MediaStreamType.Subtitle, preferredLanguages).ToList();
+            var sortedStreams = GetSortedStreams(streams, MediaStreamType.Subtitle, preferredLanguages, deprioritizeSpecialTracks).ToList();
 
             List<MediaStream>? filteredStreams = null;
 
@@ -147,7 +151,7 @@ namespace Emby.Server.Implementations.Library
 
             foreach (var stream in filteredStreams)
             {
-                stream.Score = GetStreamScore(stream, preferredLanguages);
+                stream.Score = GetStreamScore(stream, preferredLanguages, deprioritizeSpecialTracks);
             }
         }
 
@@ -178,10 +182,45 @@ namespace Emby.Server.Implementations.Library
                 .ToList();
         }
 
-        internal static int GetStreamScore(MediaStream stream, IReadOnlyList<string> languagePreferences)
+        /// <summary>
+        /// Checks whether a stream is a commentary, descriptive, or other special-purpose track
+        /// that should be deprioritized during automatic stream selection.
+        /// </summary>
+        internal static bool IsSpecialTrack(MediaStream stream)
+        {
+            // Check the hearing impaired flag for subtitle streams
+            if (stream.Type == MediaStreamType.Subtitle && stream.IsHearingImpaired)
+            {
+                return true;
+            }
+
+            var title = stream.Title;
+            if (string.IsNullOrEmpty(title))
+            {
+                return false;
+            }
+
+            // Keywords indicating commentary or special-purpose audio/subtitle tracks
+            return title.Contains("commentary", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("director", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("descriptive", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("description", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("visual narration", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("sdh", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("hearing impaired", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("signs", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("songs", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static int GetStreamScore(MediaStream stream, IReadOnlyList<string> languagePreferences, bool deprioritizeSpecialTracks = false)
         {
             var index = languagePreferences.FindIndex(x => string.Equals(x, stream.Language, StringComparison.OrdinalIgnoreCase));
             var score = index == -1 ? 1 : 101 - index;
+            if (deprioritizeSpecialTracks)
+            {
+                score = (score * 10) + (IsSpecialTrack(stream) ? 1 : 2);
+            }
+
             score = (score * 10) + (stream.IsForced ? 2 : 1);
             score = (score * 10) + (stream.IsDefault ? 2 : 1);
             score = (score * 10) + (stream.SupportsExternalStream ? 2 : 1);
