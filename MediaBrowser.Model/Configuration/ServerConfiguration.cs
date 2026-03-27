@@ -237,6 +237,12 @@ public class ServerConfiguration : BaseApplicationConfiguration
     public bool EnableLanguageDetectionFromTrackTitle { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether to deprioritize commentary, SDH,
+    /// and other special-purpose tracks during automatic stream selection.
+    /// </summary>
+    public bool EnableSpecialTrackDeprioritization { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the cors hosts.
     /// </summary>
     public string[] CorsHosts { get; set; } = new[] { "*" };

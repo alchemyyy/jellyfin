@@ -569,13 +569,16 @@ namespace Emby.Server.Implementations.Library
                 ? null
                 : source.MediaStreams.Where(i => i.Type == MediaStreamType.Audio && i.Index == defaultAudioIndex).Select(i => i.Language).FirstOrDefault();
 
+            var deprioritizeSpecialTracks = _configurationManager.Configuration.EnableSpecialTrackDeprioritization;
+
             source.DefaultSubtitleStreamIndex = MediaStreamSelector.GetDefaultSubtitleStreamIndex(
                 source.MediaStreams,
                 preferredSubs,
                 user.SubtitleMode,
-                audioLanguage);
+                audioLanguage,
+                deprioritizeSpecialTracks);
 
-            MediaStreamSelector.SetSubtitleStreamScores(source.MediaStreams, preferredSubs, user.SubtitleMode, audioLanguage);
+            MediaStreamSelector.SetSubtitleStreamScores(source.MediaStreams, preferredSubs, user.SubtitleMode, audioLanguage, deprioritizeSpecialTracks);
         }
 
         private void SetDefaultAudioStreamIndex(MediaSourceInfo source, UserItemData userData, User user, bool allowRememberingSelection, string originalLanguage)
@@ -625,7 +628,7 @@ namespace Emby.Server.Implementations.Library
                 ? NormalizeLanguage(originalLanguage)
                 : NormalizeLanguage(user.AudioLanguagePreference);
 
-            source.DefaultAudioStreamIndex = MediaStreamSelector.GetDefaultAudioStreamIndex(source.MediaStreams, preferredAudio, user.PlayDefaultAudioTrack);
+            source.DefaultAudioStreamIndex = MediaStreamSelector.GetDefaultAudioStreamIndex(source.MediaStreams, preferredAudio, user.PlayDefaultAudioTrack, _configurationManager.Configuration.EnableSpecialTrackDeprioritization);
             if (user.PlayDefaultAudioTrack)
             {
                 source.DefaultAudioIndexSource |= AudioIndexSource.Default;
