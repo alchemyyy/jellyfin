@@ -189,6 +189,15 @@ namespace MediaBrowser.MediaEncoding.Encoder
             { "libswresample", new Version(3, 9) }
         };
 
+        private static readonly KeyValuePair<Version, Version>[] _ffmpegVersionsByLibavformatVersion =
+        [
+            new KeyValuePair<Version, Version>(new Version(62, 0), new Version(8, 0)),
+            new KeyValuePair<Version, Version>(new Version(61, 0), new Version(7, 0)),
+            new KeyValuePair<Version, Version>(new Version(60, 0), new Version(6, 0)),
+            new KeyValuePair<Version, Version>(new Version(59, 0), new Version(5, 0)),
+            new KeyValuePair<Version, Version>(new Version(58, 76), new Version(4, 4))
+        ];
+
         private readonly ILogger _logger;
 
         private readonly string _encoderPath;
@@ -348,7 +357,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 }
             }
 
-            var versionMap = GetFFmpegLibraryVersions(output);
+            Dictionary<string, Version> versionMap = GetFFmpegLibraryVersions(output);
 
             var allVersionsValidated = true;
 
@@ -373,7 +382,31 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 }
             }
 
-            return allVersionsValidated ? MinVersion : null;
+            if (!allVersionsValidated)
+            {
+                return null;
+            }
+
+            return InferFFmpegVersion(versionMap);
+        }
+
+        /// <summary>
+        /// Infers a conservative FFmpeg release from its library ABI versions.
+        /// </summary>
+        /// <param name="versionMap">The parsed FFmpeg library versions.</param>
+        /// <returns>The newest release proven by the library versions.</returns>
+        private static Version InferFFmpegVersion(IReadOnlyDictionary<string, Version> versionMap)
+        {
+            Version libavformatVersion = versionMap["libavformat"];
+            foreach (KeyValuePair<Version, Version> versionThreshold in _ffmpegVersionsByLibavformatVersion)
+            {
+                if (libavformatVersion >= versionThreshold.Key)
+                {
+                    return versionThreshold.Value;
+                }
+            }
+
+            return MinVersion;
         }
 
         /// <summary>
