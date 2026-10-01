@@ -6,6 +6,11 @@ namespace MediaBrowser.Model.Branding;
 public class BrandingOptions
 {
     /// <summary>
+    /// Gets or sets the Markdown content shown in the About dialog.
+    /// </summary>
+    public string? About { get; set; }
+
+    /// <summary>
     /// Gets or sets the login disclaimer.
     /// </summary>
     /// <value>The login disclaimer.</value>

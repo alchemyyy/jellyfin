@@ -134,6 +134,7 @@ public class ConfigurationController : BaseJellyfinApiController
         var currentBranding = (BrandingOptions)_configurationManager.GetConfiguration("branding");
 
         // Update only the properties from BrandingOptionsDto
+        currentBranding.About = configuration.About;
         currentBranding.LoginDisclaimer = configuration.LoginDisclaimer;
         currentBranding.CustomCss = configuration.CustomCss;
         currentBranding.SplashscreenEnabled = configuration.SplashscreenEnabled;
