@@ -186,6 +186,8 @@ namespace Emby.Server.Implementations.Library
         /// Checks whether a stream is a commentary, descriptive, or other special-purpose track
         /// that should be deprioritized during automatic stream selection.
         /// </summary>
+        /// <param name="stream">The media stream to inspect.</param>
+        /// <returns><c>true</c> if the stream is a special-purpose track; otherwise, <c>false</c>.</returns>
         internal static bool IsSpecialTrack(MediaStream stream)
         {
             // Check the hearing impaired flag for subtitle streams
